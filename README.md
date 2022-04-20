@@ -1,3 +1,11 @@
+# Additional
+This version additionally requires Pillow, https://pypi.org/project/Pillow/, and includes an extra optional command line argument: 
+
+--store_frames
+
+Where, if this argument is present, each frame of the generated video will be stored in '/frames/frame_{number}' by default. 
+
+
 # Deep Music Visualizer
 The Deep Music Visualizer uses BigGAN (Brock et al., 2018), a generative neural network, to visualize music. Like this:
 
