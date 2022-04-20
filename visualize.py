@@ -4,7 +4,8 @@ import numpy as np
 import moviepy.editor as mpy
 import random
 import torch
-from scipy.misc import toimage
+from PIL import Image
+
 from tqdm import tqdm
 from pytorch_pretrained_biggan import (BigGAN, one_hot_from_names, truncated_noise_sample,
                                        save_as_images, display_in_terminal)
@@ -28,8 +29,14 @@ parser.add_argument("--batch_size", type=int, default=30)
 parser.add_argument("--use_previous_classes", type=int, default=0)
 parser.add_argument("--use_previous_vectors", type=int, default=0)
 parser.add_argument("--output_file", default="output.mp4")
+parser.add_argument("--store_frames",nargs='*')
 args = parser.parse_args()
 
+#if store frames
+store_frames = False
+if args.store_frames is not None: 
+    store_frames = True
+    
 
 #read song
 if args.song:
@@ -359,6 +366,7 @@ class_vectors=class_vectors.to(device)
 
 
 frames = []
+frameindex = 0
 
 for i in tqdm(range(frame_lim)):
     
@@ -378,16 +386,21 @@ for i in tqdm(range(frame_lim)):
         output = model(noise_vector, class_vector, truncation)
 
     output_cpu=output.cpu().data.numpy()
-
+    
     #convert to image array and add to frames
-    for out in output_cpu:    
-        im=np.array(toimage(out))
-        frames.append(im)
+    for out in output_cpu:
+        np_img = np.moveaxis(out, 0, -1)
+        im = Image.fromarray(np.uint8(np_img * 255))
+        
+        if store_frames: 
+            im.save("frames/frame_" + str(frameindex) + ".png")
+            frameindex = frameindex + 1
+        
+        frame = np.array(im)
+        frames.append(frame)
         
     #empty cuda cache
     torch.cuda.empty_cache()
-
-
 
 #Save video  
 aud = mpy.AudioFileClip(song, fps = 44100) 
@@ -398,8 +411,3 @@ if args.duration:
 clip = mpy.ImageSequenceClip(frames, fps=22050/frame_length)
 clip = clip.set_audio(aud)
 clip.write_videofile(outname,audio_codec='aac')
-
-
-
-
-
