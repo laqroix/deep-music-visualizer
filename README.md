@@ -5,6 +5,8 @@ This version additionally requires Pillow, https://pypi.org/project/Pillow/, and
 
 Where, if this argument is present, each frame of the generated video will be stored in '/frames/frame_{number}' by default. 
 
+Additionally, Python 3.9 is required because of the way CUDA is used for GPU processing. 
+
 
 # Deep Music Visualizer
 The Deep Music Visualizer uses BigGAN (Brock et al., 2018), a generative neural network, to visualize music. Like this:
