@@ -5,7 +5,7 @@ This version additionally requires Pillow, https://pypi.org/project/Pillow/, and
 
 Where, if this argument is present, each frame of the generated video will be stored in '/frames/frame_{number}' by default. 
 
-Additionally, Python 3.9 is required because of the way CUDA is used for GPU processing. 
+Additionally, Python 3.10 does not seem to work because of the way CUDA is used for GPU processing. 
 
 
 # Deep Music Visualizer
