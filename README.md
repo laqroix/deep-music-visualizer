@@ -1,5 +1,5 @@
-# Additional
-This version additionally requires Pillow, https://pypi.org/project/Pillow/, and includes an extra optional command line argument: 
+# Notes about the Update
+This version also requires Pillow, https://pypi.org/project/Pillow/, and includes an extra optional command line argument: 
 
 --store_frames
 
