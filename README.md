@@ -1,11 +1,15 @@
 # Notes about the Update
-This version also requires Pillow, https://pypi.org/project/Pillow/, and includes an extra optional command line argument: 
+This version also requires Pillow, https://pypi.org/project/Pillow/, and includes two extra optional command line argument: 
 
 --store_frames
 
 Where, if this argument is present, each frame of the generated video will be stored in '/frames/frame_{number}' by default. 
 
-Additionally, Python 3.10 does not seem to work because of the way CUDA is used for GPU processing. 
+--distorted
+
+If this argument is present, the colours will be distorted, example: https://www.tiktok.com/@es0cher/video/7088604775780076806?is_from_webapp=1&sender_device=pc&web_id=7089470333249619461
+
+Finally, Python 3.10 does not seem to work because of the way CUDA is used for GPU processing. 
 
 
 # Deep Music Visualizer
