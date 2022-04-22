@@ -6,7 +6,6 @@ import random
 import torch
 from PIL import Image
 
-from skimage.util import img_as_uint
 
 from tqdm import tqdm
 from pytorch_pretrained_biggan import (BigGAN, one_hot_from_names, truncated_noise_sample,
