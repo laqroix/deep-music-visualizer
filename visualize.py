@@ -6,6 +6,8 @@ import random
 import torch
 from PIL import Image
 
+from skimage.util import img_as_uint
+
 from tqdm import tqdm
 from pytorch_pretrained_biggan import (BigGAN, one_hot_from_names, truncated_noise_sample,
                                        save_as_images, display_in_terminal)
@@ -30,13 +32,18 @@ parser.add_argument("--use_previous_classes", type=int, default=0)
 parser.add_argument("--use_previous_vectors", type=int, default=0)
 parser.add_argument("--output_file", default="output.mp4")
 parser.add_argument("--store_frames",nargs='*')
+parser.add_argument("--distorted", nargs='*')
 args = parser.parse_args()
 
 #if store frames
 store_frames = False
 if args.store_frames is not None: 
     store_frames = True
-    
+
+#if distorted
+distorted = False
+if args.distorted is not None:
+    distorted = True
 
 #read song
 if args.song:
@@ -388,10 +395,16 @@ for i in tqdm(range(frame_lim)):
     output_cpu=output.cpu().data.numpy()
     
     #convert to image array and add to frames
+    #(3, 128, 128), it is 3, 128, 128)
     for out in output_cpu:
+
         np_img = np.moveaxis(out, 0, -1)
-        im = Image.fromarray(np.uint8(np_img * 255))
         
+        im = Image.fromarray(np.uint8((np_img + 1) * 128))
+        
+        if distorted:
+            im = Image.fromarray(np.uint8((np_img) * 255))
+
         if store_frames: 
             im.save("frames/frame_" + str(frameindex) + ".png")
             frameindex = frameindex + 1
