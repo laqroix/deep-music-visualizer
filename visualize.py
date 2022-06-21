@@ -1,15 +1,19 @@
+import os
 import librosa
 import argparse
 import numpy as np
 import moviepy.editor as mpy
 import random
 import torch
+import cv2 as ocv2
 from PIL import Image
-
-
+from cv2 import dnn_superres
+from operator import itemgetter
 from tqdm import tqdm
 from pytorch_pretrained_biggan import (BigGAN, one_hot_from_names, truncated_noise_sample,
                                        save_as_images, display_in_terminal)
+
+
 
 #get input arguments
 parser = argparse.ArgumentParser()
@@ -26,12 +30,13 @@ parser.add_argument("--jitter", type=float, default=0.5)
 parser.add_argument("--frame_length", type=int, default=512)
 parser.add_argument("--truncation", type=float, default=1)
 parser.add_argument("--smooth_factor", type=int, default=20)
-parser.add_argument("--batch_size", type=int, default=30)
+parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--use_previous_classes", type=int, default=0)
 parser.add_argument("--use_previous_vectors", type=int, default=0)
 parser.add_argument("--output_file", default="output.mp4")
 parser.add_argument("--store_frames",nargs='*')
 parser.add_argument("--distorted", nargs='*')
+parser.add_argument("--save", nargs='*')
 args = parser.parse_args()
 
 #if store frames
@@ -43,6 +48,11 @@ if args.store_frames is not None:
 distorted = False
 if args.distorted is not None:
     distorted = True
+    
+#if save
+save = False
+if args.save is not None:
+    save = True
 
 #read song
 if args.song:
@@ -54,6 +64,12 @@ else:
 
 #set model name based on resolution
 model_name='biggan-deep-' + args.resolution
+path = "./ESPCN_x4.pb"
+superres = ocv2.dnn_superres.DnnSuperResImpl_create()
+superres.readModel(path)
+superres.setModel("espcn",4)
+
+
 
 frame_length=args.frame_length
 
@@ -366,60 +382,91 @@ class_vectors = torch.Tensor(np.array(class_vectors))
 print('\n\nGenerating frames \n')
 
 #send to CUDA if running on GPU
-model=model.to(device)
-noise_vectors=noise_vectors.to(device)
-class_vectors=class_vectors.to(device)
+
 
 
 frames = []
 frameindex = 0
-
-for i in tqdm(range(frame_lim)):
+fpath = "frames"
+if not save:
+    model=model.to(device)
+    noise_vectors=noise_vectors.to(device)
+    class_vectors=class_vectors.to(device)
     
-    #print progress
-    pass
+    for i in tqdm(range(frame_lim)):
+        
+        #print progress
+        pass
 
-    if (i+1)*batch_size > len(class_vectors):
+        if (i+1)*batch_size > len(class_vectors):
+            torch.cuda.empty_cache()
+            break
+        
+        #get batch
+        noise_vector=noise_vectors[i*batch_size:(i+1)*batch_size]
+        class_vector=class_vectors[i*batch_size:(i+1)*batch_size]
+
+        # Generate images
+        with torch.no_grad():
+            output = model(noise_vector, class_vector, truncation)
+
+        output_cpu=output.cpu().data.numpy()
+        
+        #convert to image array and add to frames
+        #(3, 128, 128), it is 3, 128, 128)
+        for out in output_cpu:
+
+            im = np.moveaxis(out, 0, -1)
+            im = superres.upsample(np.uint8((im + 1) * 128))
+            
+            im2 = ocv2.flip(im, 0)
+            im = np.concatenate((im, im2), axis=0)
+            im2 = ocv2.flip(im, 1)
+            im = np.concatenate((im, im2), axis=1)
+            np_img = im[1024:1024+2048, 0:4096]
+            
+            
+            im = Image.fromarray(np_img)
+
+
+            
+            if distorted:
+                im = Image.fromarray(np.uint8((np_img) * 255))
+
+            if store_frames: 
+                im.save(os.path.join(fpath, "frame_" + str(frameindex) + ".png"))
+                frameindex = frameindex + 1
+            else:
+                frame = np.array(im)
+                frames.append(frame)
+            
+        #empty cuda cache
         torch.cuda.empty_cache()
-        break
-    
-    #get batch
-    noise_vector=noise_vectors[i*batch_size:(i+1)*batch_size]
-    class_vector=class_vectors[i*batch_size:(i+1)*batch_size]
 
-    # Generate images
-    with torch.no_grad():
-        output = model(noise_vector, class_vector, truncation)
-
-    output_cpu=output.cpu().data.numpy()
-    
-    #convert to image array and add to frames
-    #(3, 128, 128), it is 3, 128, 128)
-    for out in output_cpu:
-
-        np_img = np.moveaxis(out, 0, -1)
-        
-        im = Image.fromarray(np.uint8((np_img + 1) * 128))
-        
-        if distorted:
-            im = Image.fromarray(np.uint8((np_img) * 255))
-
-        if store_frames: 
-            im.save("frames/frame_" + str(frameindex) + ".png")
-            frameindex = frameindex + 1
-        
-        frame = np.array(im)
-        frames.append(frame)
-        
-    #empty cuda cache
-    torch.cuda.empty_cache()
-
-#Save video  
 aud = mpy.AudioFileClip(song, fps = 44100) 
+        
+if store_frames:
+    files = os.listdir(fpath)
+    file_names = []
+    for f in sorted(files):
+        file_names.append({'num':int(f[:-4].split("_")[1]), 'path' : os.path.join(fpath, f) })
+    file_names = sorted(file_names, key=itemgetter('num'))
+    for f in file_names:
+        frames.append(f['path'])
 
-if args.duration:
-    aud.duration=args.duration
+    if args.duration:
+        aud.duration=args.duration
 
-clip = mpy.ImageSequenceClip(frames, fps=22050/frame_length)
-clip = clip.set_audio(aud)
-clip.write_videofile(outname,audio_codec='aac')
+    clip = mpy.ImageSequenceClip(frames, fps=22050/frame_length)
+    clip = clip.set_audio(aud)
+    clip.write_videofile(outname,audio_codec='aac')
+    
+else:
+    #Save video  
+    if args.duration:
+        aud.duration=args.duration
+
+    clip = mpy.ImageSequenceClip(frames, fps=22050/frame_length)
+    clip = clip.set_audio(aud)
+    clip.write_videofile(outname,audio_codec='aac')
+
