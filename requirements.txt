@@ -5,4 +5,7 @@ moviepy
 #pytorch 
 torch 
 #biggan 
-pytorch_pretrained_biggan 
+pytorch_pretrained_biggan
+#opencv
+opencv-python
+opencv-contrib-python
